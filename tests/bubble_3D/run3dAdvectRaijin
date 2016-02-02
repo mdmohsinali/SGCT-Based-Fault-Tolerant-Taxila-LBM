@@ -1,0 +1,212 @@
+#!/bin/bash
+# script to mitigate the current deficiency of lbm_raijin_cluster that calculation
+# of total MPI processes needed is complex and must be done in advance
+# Peter Strazdins, May 13
+# Modified by Mohsin Ali, July 13, February 14, April 14, May 2014, November 2014
+
+# Settings by the user
+# ---------------------------------------------------------------
+REAL_FAULT_TOLERANCE=0
+# 0 for NO and 1 for YES
+# ---------------------------------------------------------------
+WITH_HOSTFILE=0 # Automatically changed to 0 if USE_MANUAL_MAP=1
+# 0 for WITHOUT HOSTFILE and 1 for WITH HOSTFILE
+# ---------------------------------------------------------------
+SPEEDUP_OR_PROFILE=0
+# 0 for SPEEDUP
+# 1 for IPM PROFILE
+# 2 for TAU PROFILE
+# ---------------------------------------------------------------
+MPI_RUN=mpirun
+# "$HOME/bin/mpirun" (for OPL) or "/short/v29/mma659/bin/mpirun" 
+# (for Raijin) for MPI installed that specific location and 
+# "mpirun" for DEFAULT directory (based on ./bashrc entry) 
+# (without quote)
+# ---------------------------------------------------------------
+MCA_PARAM="--mca coll tuned,ftbasic,basic,self --mca coll_ftbasic_method 1"
+# Tested with the following
+# 1. "--mca coll_ftbasic_method 1" (with quote) 
+#    for Two-Phase Commit (unsafe)
+# 2. "--mca coll_ftbasic_method 2" (with quote)
+#    for Log Two-Phase Commit (unsafe)
+# 3. "--mca coll_ftbasic_method 3" (with quote) or 
+#    " " (without quote) for Early Consensus Termination (default)
+#
+# With git revision icldistcomp-ulfm-46b781a8f170 (13 December 2014)
+#    0 = AllReduce (unsafe)
+#    1 = Two-Phase Commit (unsafe)
+#    2 = Log Two-Phase Commit (unsafe)
+#    3 = Early Consensus Termination (default)
+#
+# ---------------------------------------------------------------
+USE_OMP_THREADS=0
+# 0 if OMP threads are NOT used
+# 1 if OMP threads are used
+# Update of P needed in jobscript file
+# ---------------------------------------------------------------
+USE_MANUAL_MAP=0 # Currently working only for USE_OMP_THREADS=0
+# 0 if manual mapping is NOT used
+# 1 if manual mapping is used
+# ---------------------------------------------------------------
+
+
+# Unset some variables
+unset LD_PRELOAD
+unset OMP_NUM_THREADS
+unset GOMP_CPU_AFFINITY
+
+# Selecting proper directory
+if [ "$PBS_O_WORKDIR" == "" ];
+   then
+   WORK_DIR="."
+else
+   WORK_DIR=$PBS_O_WORKDIR
+fi
+
+params="$*"
+
+if [ "$USE_OMP_THREADS" -eq 1 ]; # use OMP threads
+   # Update of P needed in jobscript file
+   then
+   export OMP_NUM_THREADS=8
+   export GOMP_CPU_AFFINITY=0-15
+   OMP_PARAM="-report-bindings -cpus-per-proc $OMP_NUM_THREADS -npersocket 1 -x OMP_NUM_THREADS -x GOMP_CPU_AFFINITY -tag-output"
+   # Each MPI process runs on OMP_NUM_THREADS CPU cores
+   # Each MPI process runs with OMP_NUM_THREADS OMP threads
+   # A single MPI process runs on each CPU socket
+else
+   export OMP_NUM_THREADS=1
+   if [ "$USE_MANUAL_MAP" -eq 1 ]; # use manual MPI process to CPU core map (ranks is rankfile) without hostfile
+      then
+      WITH_HOSTFILE=0 # No hotfile needed
+      OMP_PARAM="-report-bindings -rf ranks -tag-output"
+   else
+      OMP_PARAM=" "
+   fi
+fi
+
+# Run application to determine correct processor count
+nprocs=`$WORK_DIR/lbm_raijin_cluster -n $params | awk '{print $1}'`
+temp=`$WORK_DIR/lbm_raijin_cluster -o $params | awk '{print $1}'`
+
+if test "${params#*-w}" = "$params"; then
+  # the variable does not contain the string `-w`
+  nprocsSg=0
+else
+  nprocsSg=$temp
+fi
+nprocs=$(($nprocs+$nprocsSg))
+
+# Set LD_PRELOAD for IPM
+# Path of libipm.so (also libpapi.so) file
+if [ "$SPEEDUP_OR_PROFILE" -eq 1 ]; # ipm profile
+   then
+   export LD_PRELOAD="/short/v29/mma659/non_ft_sw/lib/libipm.so"
+   export IPM_REPORT=full
+fi
+# Currently, IPM is NOT working for non-ft and ft version of MPI for GENE
+
+# Flag for TAU settings
+export TAU_MAKEFILE=/short/v29/mma659/non_ft_sw/x86_64/lib/Makefile.tau-papi-mpi-pdt
+#export TAU_METRICS=GET_TIME_OF_DAY\:PAPI_FP_INS
+# (available PAPI events by papi_avail, and testing their compatibility by
+# papi_event_chooser GET_TIME_OF_DAY PAPI_L1_DCM PAPI_L1_ICM PAPI_L2_DCM PAPI_L2_ICM PAPI_L1_TCM PAPI_L2_TCM)
+export TAU_METRICS=GET_TIME_OF_DAY\:PAPI_L1_DCM\:PAPI_L1_ICM\:PAPI_L2_DCM\:PAPI_L2_ICM\:PAPI_L1_TCM\:PAPI_L2_TCM
+export TAU_COMM_MATRIX=1
+export TAU_CALLPATH=1
+export TAU_CALLPATH_DEPTH=2 # 2 is default
+#export TAU_TRACE=1
+#export TAU_TRACK_HEAP=1
+#export TAU_TRACK_IO_PARAMS=1
+#export TAU_TRACK_MEMORY_LEAKS=1
+
+# tau_exec options
+MY_TAU_OPTIONS=""
+# Some of the commons are "-io -memory -ebs -cuba -opencl"
+# tau_exec -help shows the following
+# -v            Verbose mode
+# -s            Show what will be done but don't actually do anything (dryrun)
+# -qsub         Use qsub mode (BG/P only, see below)
+# -io           Track I/O
+# -memory       Track memory allocation/deallocation
+# -memory_debug Enable memory debugger
+# -cuda         Track GPU events via CUDA
+# -cupti        Track GPU events via CUPTI (Also see env. variable TAU_CUPTI_API)
+# -opencl       Track GPU events via OpenCL
+# -armci        Track ARMCI events via PARMCI
+# -ebs          Enable event-based sampling
+# -ebs_period=<count> Sampling period (default 1000)
+# -ebs_source=<counter> Counter (default itimer)
+# -T <DISABLE,MPI,PAPI,PDT,PROFILE,SERIAL> : Specify TAU tags
+# -loadlib=<file.so>   : Specify additional load library
+# -XrunTAUsh-<options> : Specify TAU library directly
+# -gdb          Run program in the gdb debugger
+#
+# Currently, TAU is NOT working for ft version of MPI for GENE
+# ---------------------------------------------------------------
+
+if [ "$REAL_FAULT_TOLERANCE" -eq 0 ]; # WITHOUT FAULT TOLERANCE ###################################
+   then
+    if [ "$WITH_HOSTFILE" -eq 0 ]; # with no hostfile
+       then
+        # Without hostfile
+        if [ "$SPEEDUP_OR_PROFILE" -eq 0 ]; # speedup
+           then
+            echo $MPI_RUN -np $nprocs $OMP_PARAM $WORK_DIR/lbm_raijin_cluster $params 
+            $MPI_RUN -np $nprocs $OMP_PARAM $WORK_DIR/lbm_raijin_cluster $params
+        elif [ "$SPEEDUP_OR_PROFILE" -eq 1 ]; # ipm profile
+            then
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -x LD_PRELOAD -x LD_LIBRARY_PATH $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params 
+            $MPI_RUN -np $nprocs $OMP_PARAM -x LD_PRELOAD -x LD_LIBRARY_PATH $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params
+        else # tau profile
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -x LD_LIBRARY_PATH $MCA_PARAM tau_exec $MY_TAU_OPTIONS $WORK_DIR/lbm_raijin_cluster $params 
+            $MPI_RUN -np $nprocs $OMP_PARAM -x LD_LIBRARY_PATH $MCA_PARAM tau_exec $MY_TAU_OPTIONS $WORK_DIR/lbm_raijin_cluster $params
+        fi
+
+    else # with hostfile
+        if [ "$SPEEDUP_OR_PROFILE" -eq 0 ]; # speedup
+           then
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_LIBRARY_PATH $WORK_DIR/lbm_raijin_cluster $params 
+            $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_LIBRARY_PATH $WORK_DIR/lbm_raijin_cluster $params
+        elif [ "$SPEEDUP_OR_PROFILE" -eq 1 ]; # ipm profile
+            then
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_PRELOAD -x LD_LIBRARY_PATH $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params 
+            $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_PRELOAD -x LD_LIBRARY_PATH $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params
+        else # tau profile
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_LIBRARY_PATH $MCA_PARAM tau_exec $MY_TAU_OPTIONS $WORK_DIR/lbm_raijin_cluster $params 
+            $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_LIBRARY_PATH $MCA_PARAM tau_exec $MY_TAU_OPTIONS $WORK_DIR/lbm_raijin_cluster $params
+        fi
+    fi
+
+else # WITH FAULT TOLERANCE ###################################
+    if [ "$WITH_HOSTFILE" -eq 0 ]; # with no hostfile
+       then
+        # Without hostfile 
+        if [ "$SPEEDUP_OR_PROFILE" -eq 0 ]; # speedup
+            then
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -am ft-enable-mpi $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params
+            $MPI_RUN -np $nprocs $OMP_PARAM -am ft-enable-mpi $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params
+        elif [ "$SPEEDUP_OR_PROFILE" -eq 1 ]; # ipm profile
+            then
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -x LD_PRELOAD -x LD_LIBRARY_PATH -am ft-enable-mpi $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params 
+            $MPI_RUN -np $nprocs $OMP_PARAM -x LD_PRELOAD -x LD_LIBRARY_PATH -am ft-enable-mpi $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params
+        else # tau profile
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -x LD_LIBRARY_PATH -am ft-enable-mpi $MCA_PARAM tau_exec $MY_TAU_OPTIONS $WORK_DIR/lbm_raijin_cluster $params 
+            $MPI_RUN -np $nprocs $OMP_PARAM -x LD_LIBRARY_PATH -am ft-enable-mpi $MCA_PARAM tau_exec $MY_TAU_OPTIONS $WORK_DIR/lbm_raijin_cluster $params            
+        fi
+    else # with hostfile 
+        if [ "$SPEEDUP_OR_PROFILE" -eq 0 ]; # speedup
+            then
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_LIBRARY_PATH -am ft-enable-mpi $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params
+            $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_LIBRARY_PATH -am ft-enable-mpi $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params
+
+        elif [ "$SPEEDUP_OR_PROFILE" -eq 1 ]; # ipm profile
+            then
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_PRELOAD -x LD_LIBRARY_PATH -am ft-enable-mpi $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params 
+            $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_PRELOAD -x LD_LIBRARY_PATH -am ft-enable-mpi $MCA_PARAM $WORK_DIR/lbm_raijin_cluster $params
+        else # tau profile
+            echo $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_LIBRARY_PATH -am ft-enable-mpi $MCA_PARAM tau_exec $MY_TAU_OPTIONS $WORK_DIR/lbm_raijin_cluster $params 
+            $MPI_RUN -np $nprocs $OMP_PARAM -hostfile $WORK_DIR/hostfile -x LD_LIBRARY_PATH -am ft-enable-mpi $MCA_PARAM tau_exec $MY_TAU_OPTIONS $WORK_DIR/lbm_raijin_cluster $params
+        fi
+    fi
+fi

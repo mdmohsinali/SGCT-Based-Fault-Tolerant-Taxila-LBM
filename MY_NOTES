@@ -1,0 +1,397 @@
+main.F90
+
+#include "lbm_definitions.h"
+
+  PetscInt istep
+  PetscInt ntimes, npasses
+  PetscInt kwrite, kprint
+  PetscErrorCode ierr
+  character(len=MAx_startTRINGLENGTH) infile
+  character(len=MAXWORDLENGTH) prefix
+  ! Added by Mohsin Ali
+  PetscInt  i, j, k, x_start, y_start, z_start, x_width, y_width, z_width
+  PetscScalar, pointer :: fi_1d(:), fi_2d(:, :), fi_3d(:, :, :)
+  !x_start, y_start, z_start   - starting grid indices, like c (no ghost points)
+  !x_width, y_width, z_width   - widths of local grid, like c(no ghost points)
+  .
+  .
+  .
+  call getarg(1, infile)
+  call PetscInitialize(infile, ierr)
+  lbm => LBMCreate(PETSC_COMM_WORLD)
+  options => lbm%options
+  call LoggerCreate()
+  call PetscLogStagePush(logger%stage(INIT_STAGE), ierr)
+
+  ! initialize options and constants
+  call PetscLogEventBegin(logger%event_init_options,ierr)
+  call OptionsSetPrefix(options, prefix)
+  call OptionsSetUp(options)
+  call PetscLogEventEnd(logger%event_init_options,ierr)
+  call LBMSetFromOptions(lbm, options, ierr);CHKERRQ(ierr)
+  call LBMSetUp(lbm)
+
+  ! set boundary conditions
+  call PetscLogEventBegin(logger%event_init_bcsetup,ierr)
+  call BCSetValues(lbm%flow%bc, lbm%flow%distribution, options, initialize_bcs)
+  call BCSetValues(lbm%transport%bc, lbm%transport%distribution, &
+  call PetscLogEventEnd(logger%event_init_bcsetup,ierr)
+
+  ! set initial conditions
+  call PetscLogEventBegin(logger%event_init_icsetup,ierr)
+  if (options%restart) then
+     call LBMInitializeStateRestarted(lbm, options%istep, options%kwrite)
+     istep = options%istep
+  else if (options%ic_from_file) then
+     call LBMInitializeStateFromFile(lbm)
+     istep = 0
+  else
+     if (associated(lbm%transport)) then
+        call LBMInitializeState(lbm, initialize_state, initialize_state_transport)
+     else
+        call LBMInitializeState(lbm, initialize_state)
+     end if
+
+     if (options%flow_at_steady_starttate_hasfile) then
+        call LBMLoadSteady_starttateFlow(lbm, options%flow_at_steady_starttate_flow_file)
+     end if
+     istep=0
+  endif
+  call PetscLogEventEnd(logger%event_init_icsetup,ierr)
+
+  ! start lbm
+  write(*,*) 'calling lbm from inital step', istep, 'to final step', &
+
+  call LBMInit(lbm, istep, options%supress_ic_output)
+  call LBMRun(lbm, istep, options%ntimes*options%npasses)
+  		LBMRun2() in lbm.F90 file
+	
+      		! input
+      		timername = trim(lbm%name)//'Simulation'
+      		timer1 => TimingCreate(lbm%comm, timername)
+      		do lcv_step = istep+1,kstep
+         	   ! collision
+	           call PetscLogStagePop(ierr)
+         	   call PetscLogStagePush(logger%stage(COLLISION_STAGE), ierr)
+         	   call PetscLogEventBegin(logger%event_collision_flow, ierr)
+         	   call FlowCollision(lbm%flow, lbm%walls)
+         	   call PetscLogEventEnd(logger%event_collision_flow, ierr)
+
+         	   call PetscLogEventBegin(logger%event_diagnostics,ierr)
+         	   call FlowUpdateDiagnostics(lbm%flow, lbm%walls)
+         	   call PetscLogEventEnd(logger%event_diagnostics,ierr)
+
+         	   call PetscLogEventBegin(logger%event_collision_tran,ierr)
+         	   call TransportCollision(lbm%transport, lbm%walls, lbm%flow)
+         	   call PetscLogEventEnd(logger%event_collision_tran,ierr)
+
+         	   ! streaming
+         	   call PetscLogStagePop(ierr)
+         	   call PetscLogStagePush(logger%stage(STREAM_STAGE), ierr)
+
+         	   call PetscLogEventBegin(logger%event_communicate_fi, ierr)
+         	   call DistributionCommunicateFi(lbm%flow%distribution)
+         	   call PetscLogEventEnd(logger%event_communicate_fi, ierr)
+
+         	   call PetscLogEventBegin(logger%event_stream_flow,ierr)
+         	   call FlowStream(lbm%flow)
+         	   call PetscLogEventEnd(logger%event_stream_flow,ierr)
+
+         	   call DistributionCommunicateFi(lbm%transport%distribution)
+         	   call PetscLogEventBegin(logger%event_stream_tran,ierr)
+         	   call TransportStream(lbm%transport)
+         	   call PetscLogEventEnd(logger%event_stream_tran,ierr)
+
+         	   call PetscLogStagePop(ierr)
+         	   call PetscLogStagePush(logger%stage(BC_STAGE), ierr)
+
+         	   ! internal bounceback
+         	   call PetscLogEventBegin(logger%event_bc_bounceback,ierr)
+         	   call FlowBounceback(lbm%flow, lbm%walls)
+         	   call PetscLogEventEnd(logger%event_bc_bounceback,ierr)        
+
+         	   call PetscLogEventBegin(logger%event_bc_tranwallreact,ierr)
+         	   call TransportReactWithWalls(lbm%transport, lbm%walls)
+         	   call PetscLogEventEnd(logger%event_bc_tranwallreact,ierr)
+
+         	   ! external boundary conditions
+         	   call PetscLogEventBegin(logger%event_bc_flow,ierr)
+         	   call FlowApplyBCs(lbm%flow, lbm%walls)
+         	   call PetscLogEventEnd(logger%event_bc_flow,ierr)
+
+         	   ! update moments for rho, psi
+         	   call PetscLogStagePop(ierr)
+         	   call PetscLogStagePush(logger%stage(MOMENTS_STAGE), ierr)
+         	   call PetscLogEventBegin(logger%event_flow_moments,ierr)
+         	   call FlowUpdateFlux(lbm%flow, lbm%walls)
+         	   call PetscLogEventEnd(logger%event_flow_moments,ierr)
+
+         	   call PetscLogEventBegin(logger%event_tran_moments,ierr)
+         	   call TransportUpdateMoments(lbm%transport, lbm%walls)
+         	   call PetscLogEventEnd(logger%event_tran_moments,ierr)
+
+         	   ! check for output
+        	   call PetscLogStagePop(ierr)
+         	   call PetscLogStagePush(logger%stage(OUTPUT_STAGE), ierr)
+
+         	   call PetscLogEventBegin(logger%event_output,ierr)
+         	   call LBMOutput(lbm, lcv_step)
+         	   call PetscLogEventEnd(logger%event_output,ierr)
+
+         	   call PetscLogEventBegin(logger%event_output,ierr)
+         	   call LBMOutput(lbm, lcv_step)
+         	   call PetscLogEventEnd(logger%event_output,ierr)
+
+         	   call PetscLogEventBegin(logger%event_output,ierr)
+         	   call LBMOutput(lbm, lcv_step)
+         	   call PetscLogEventEnd(logger%event_output,ierr)
+
+         	   call DistributionCalcDeltaNorm(lbm%flow%distribution, norm)
+         	   write(*,*) "Exiting steady state solve, norm (tol):", norm, "(", &
+              		   lbm%options%steady_starttate_tolerance, ")"
+      		end do
+
+      		! if we're solving to steady state, the last timestep may not be a standard i/o check
+      		call PetscLogStagePop(ierr)
+      		call PetscLogStagePush(logger%stage(OUTPUT_STAGE), ierr)
+      		lbm%flow%io_fi = (lbm%flow%io_fi.OR.lbm%flow%io_last_fi)
+      		call PetscLogEventBegin(logger%event_output,ierr)
+      		call LBMOutput(lbm, lcv_step)
+				FlowOutputDiagnostics(flow, io) in lbm.F90 file			
+                                write(*,*) 'outputing step', istep, 'to file', lbm%io%counter
+         			call FlowUpdateDiagnostics(lbm%flow, lbm%walls)
+						File lbm_flow.F90
+						type(flow_type) flow
+						type(walls_type) walls
+						PetscErrorCode ierr
+
+						PetscScalar,dimension(flow%ncomponents, flow%ndims, &
+						     flow%grid%info%gxyzl):: u
+						PetscInt m
+
+						call DistributionCalcFlux(flow%distribution, walls%walls_a, u)
+
+						call DMDAVecGetArrayF90(flow%grid%da(NFLOWDOF),flow%velt_g,flow%velt_a,ierr)
+						call DMDAVecGetArrayF90(flow%grid%da(ONEDOF), flow%rhot_g, flow%rhot_a,ierr)
+						call DMDAVecGetArrayF90(flow%grid%da(ONEDOF), flow%prs_g, flow%prs_a, ierr)
+
+						if (flow%use_nonideal_eos) then
+						  do m=1,flow%ncomponents
+						    call EOSApply(flow%components(m)%eos, flow%distribution%rho_a, &
+							 flow%psi_of_rho, flow%components(m)%gf(m), m, flow%distribution)
+						  end do
+						end if
+
+						select case(flow%ndims)
+						case(2)
+						  if (flow%use_nonideal_eos) then
+						    call FlowUpdateDiagnosticsD2(flow, flow%distribution%rho_a, flow%psi_of_rho, &
+							 u, flow%forces, walls%walls_a, flow%rhot_a, &
+							 flow%prs_a, flow%velt_a)
+						  else
+						    call FlowUpdateDiagnosticsD2(flow, flow%distribution%rho_a, flow%distribution%rho_a, &
+							 u, flow%forces, walls%walls_a, flow%rhot_a, &
+							 flow%prs_a, flow%velt_a)
+						  end if
+						case(3)
+						  if (flow%use_nonideal_eos) then
+						    call FlowUpdateDiagnosticsD3(flow, flow%distribution%rho_a, flow%psi_of_rho, &
+							 u, flow%forces, walls%walls_a, flow%rhot_a, &
+							 flow%prs_a, flow%velt_a)
+						  else
+						    call FlowUpdateDiagnosticsD3(flow, flow%distribution%rho_a, flow%distribution%rho_a, &
+							 u, flow%forces, walls%walls_a, flow%rhot_a, &
+							 flow%prs_a, flow%velt_a)
+						  end if
+						end select
+						call DMDAVecRestoreArrayF90(flow%grid%da(NFLOWDOF),flow%velt_g,flow%velt_a,ierr)
+						call DMDAVecRestoreArrayF90(flow%grid%da(ONEDOF), flow%rhot_g, flow%rhot_a, ierr)
+						call DMDAVecRestoreArrayF90(flow%grid%da(ONEDOF), flow%prs_g, flow%prs_a, ierr)
+         			call FlowOutputDiagnostics(lbm%flow, lbm%io)
+						File lbm_flow.F90
+					        call DMDAVecRestoreArrayF90(flow%grid%da(NCOMPONENTXBDOF),flow%distribution%fi, &
+                                                        flow%distribution%fi_a, ierr)
+					        call DMLocalToGlobalBegin(flow%grid%da(NCOMPONENTXBDOF),flow%distribution%fi, &
+					                INSERT_VALUES, flow%distribution%fi_g, ierr)
+					        call DMLocalToGlobalEnd(flow%grid%da(NCOMPONENTXBDOF),flow%distribution%fi, &
+					             INSERT_VALUES, flow%distribution%fi_g, ierr)
+					        call DMDAVecGetArrayF90(flow%grid%da(NCOMPONENTXBDOF),flow%distribution%fi, &
+					             flow%distribution%fi_a, ierr)
+					        call IOView(io, flow%distribution%fi_g, 'fi')
+								IOView(io, vec, name) in lbm_io.F90 file
+		    						Vec vec
+    								PetscViewer viewer
+
+    								write(outnum, stringformat) io%counter
+    								filename = io%prefix(1:io%prefix_len)//trim(name)//outnum//'.dat'
+    								call PetscViewerCreate(io%comm, viewer, ierr)
+    								call PetscViewerSetType(viewer, PETSCVIEWERBINARY, ierr)
+    								if (io%mpiio) call PetscViewerBinary_startetMPIIO(viewer, ierr)
+    								call PetscViewerFileSetMode(viewer, FILE_MODE_WRITE, ierr)
+    								call PetscViewerFileSetName(viewer, filename, ierr)
+    								call VecView(vec, viewer, ierr)
+    								call PetscViewerDestroy(viewer,ierr)
+    
+         			call TransportUpdateDiagnostics(lbm%transport, lbm%walls)
+         			call TransportOutputDiagnostics(lbm%transport, lbm%io)
+      				call IOIncrementCounter(lbm%io)
+      		call PetscLogEventEnd(logger%event_output,ierr)
+
+      		timerunits = 'timestep'
+      		call TimingEndPerUnit(timer1, (kstep-istep+1), timerunits, supress_output)
+      		call TimingDestroy(timer1)
+
+  ! Added by Mohsin Ali
+  !call DMDAVecGetArrayF90(lbm%flow%grid%da(NCOMPONENTXBDOF),lbm%flow%distribution%fi_g, &
+  !          lbm%flow%distribution%fi_a, ierr)
+
+  !!!!!!!!!!!!!!! EITHER, distribution function as output
+       call DMLocalToGlobalBegin(lbm%flow%grid%da(NCOMPONENTXBDOF),lbm%flow%distribution%fi, &
+            INSERT_VALUES, lbm%flow%distribution%fi_g, ierr)
+       call DMLocalToGlobalEnd(lbm%flow%grid%da(NCOMPONENTXBDOF),lbm%flow%distribution%fi, &
+            INSERT_VALUES, lbm%flow%distribution%fi_g, ierr)
+
+  select case(lbm%flow%ndims)
+  case(1)
+      call DMDAVecGetArrayF90(lbm%flow%grid%da(NCOMPONENTXBDOF),lbm%flow%distribution%fi_g, &
+           fi_1d, ierr)
+  case(2)
+      call DMDAVecGetArrayF90(lbm%flow%grid%da(NCOMPONENTXBDOF),lbm%flow%distribution%fi_g, &
+           fi_2d, ierr)
+  case(3)
+      call DMDAVecGetArrayF90(lbm%flow%grid%da(NCOMPONENTXBDOF),lbm%flow%distribution%fi_g, &
+           fi_3d, ierr)
+  end select
+
+  call DMDAGetCorners(lbm%flow%grid%da(NCOMPONENTXBDOF), x_start, y_start, z_start, x_width, y_width, z_width, ierr)
+
+  select case(lbm%flow%ndims)
+  case(1)
+      call DMDAVecRestoreArrayF90(lbm%flow%grid%da(NCOMPONENTXBDOF),lbm%flow%distribution%fi_g,&
+            fi_1d, ierr)
+  case(2)
+      call DMDAVecRestoreArrayF90(lbm%flow%grid%da(NCOMPONENTXBDOF),lbm%flow%distribution%fi_g,&
+            fi_2d, ierr)
+  case(3)
+      call DMDAVecRestoreArrayF90(lbm%flow%grid%da(NCOMPONENTXBDOF),lbm%flow%distribution%fi_g,&
+            fi_3d, ierr)
+  end select
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! OR, density as output
+       call DMLocalToGlobalBegin(lbm%flow%grid%da(NCOMPONENTDOF),lbm%flow%distribution%rho, &
+            INSERT_VALUES, lbm%flow%distribution%rho_g, ierr)
+       call DMLocalToGlobalEnd(lbm%flow%grid%da(NCOMPONENTDOF),lbm%flow%distribution%rho, &
+            INSERT_VALUES, lbm%flow%distribution%rho_g, ierr)
+
+       call VecScale(lbm%flow%distribution%rho_g, &
+            lbm%flow%mass_scale/(lbm%flow%grid%length_scale**3), ierr)
+       call VecScale(lbm%flow%distribution%rho_g, &
+            (lbm%flow%grid%length_scale**3)/lbm%flow%mass_scale, ierr)
+
+       select case(lbm%flow%ndims)
+       case(1)
+           call DMDAVecGetArrayF90(lbm%flow%grid%da(NCOMPONENTDOF),lbm%flow%distribution%rho_g, &
+                fi_1d, ierr)
+       case(2)
+           call DMDAVecGetArrayF90(lbm%flow%grid%da(NCOMPONENTDOF),lbm%flow%distribution%rho_g, &
+                fi_2d, ierr)
+       case(3)
+           call DMDAVecGetArrayF90(lbm%flow%grid%da(NCOMPONENTDOF),lbm%flow%distribution%rho_g, &
+                fi_3d, ierr)
+       end select
+
+       call DMDAGetCorners(lbm%flow%grid%da(NCOMPONENTDOF), x_start, y_start, z_start, x_width, &
+            y_width, z_width, ierr)
+
+       select case(lbm%flow%ndims)
+       case(1)
+           call DMDAVecRestoreArrayF90(lbm%flow%grid%da(NCOMPONENTDOF),lbm%flow%distribution%rho_g, &
+                 fi_1d, ierr)
+       case(2)
+           call DMDAVecRestoreArrayF90(lbm%flow%grid%da(NCOMPONENTDOF),lbm%flow%distribution%rho_g, &
+                 fi_2d, ierr)
+       case(3)
+           call DMDAVecRestoreArrayF90(lbm%flow%grid%da(NCOMPONENTDOF),lbm%flow%distribution%rho_g, &
+                 fi_3d, ierr)
+       end select
+
+  if (lbm%grid%info%rank.eq.0) then
+  do k = z_start, z_start+z_width-1
+      do j = y_start, y_start+y_width-1
+          do i = x_start, x_start+x_width-1
+              if (lbm%flow%ndims.eq.1) then
+                  write (*, '("val=", 2g14.6)') fi_1d(i)
+              else if (lbm%flow%ndims.eq.2) then
+                  write (*, '("val=", 2g14.6)') fi_2d(i, j)
+              else if (lbm%flow%ndims.eq.3) then
+                  write (*, '("val=", 2g14.6)') fi_3d(i, j, k)
+              end if
+          enddo
+      enddo
+  enddo
+  end if
+
+  ! Added by Mohsin Ali with list of modules where the above subroutines and variables are defined
+  !use LBM_Flow_module
+  !use LBM_Distribution_Function_type_module
+  !use LBM_Distribution_Function_module
+  !use LBM_Grid_module
+
+  ! Added by Mohsin Ali with list of types of that are used on the above subroutines
+  !type(flow_type),pointer:: flow
+  !type(grid_type),pointer :: grid
+  !DM,pointer,dimension(:) :: da
+  !type(distribution_type),pointer:: distribution
+  !Vec fi
+  !Vec fi_g
+  !PetscScalar,pointer:: fi_a(:)
+
+  call PetscLogStagePop(ierr)
+  call PetscLogStagePush(logger%stage(DESTROY_STAGE), ierr)
+  call LBMDestroy(lbm, ierr)
+  call PetscLogStagePop(ierr)
+  call LoggerDestroy()
+  call PetscFinalize(ierr)
+
+
+mpirun -np 8 for 2D default
+Process 0:
+val=  0.455274
+val=  0.140816E-01
+val=  0.113829
+val=  0.352069E-02
+val=  0.113829
+val=  0.352069E-02
+val=  0.113811
+val=  0.351913E-02
+val=  0.113811
+val=  0.351913E-02
+val=  0.284599E-01
+val=  0.880242E-03
+val=  0.284546E-01
+val=  0.879827E-03
+val=  0.284561E-01
+val=  0.879625E-03
+val=  0.284546E-01
+val=  0.879827E-03
+val=  0.455147
+val=  0.140782E-01
+val=  0.113809
+.
+.
+.
+
+    ! check io options
+    call OptionsGetBool(options, "-output_flow_fi", &
+         "ouput distribution function for flow", flow%io_fi, flag, ierr)
+    call OptionsGetBool(options, "-output_flow_last_fi", &
+         "ouput distribution function for flow at the last timestep", &
+         flow%io_last_fi, flag, ierr)
+    call OptionsGetBool(options, "-output_rho", "output density", &
+         flow%io_rho, flag, ierr)
+    call OptionsGetBool(options, "-output_velocity", "output total velocity", &
+         flow%io_velt, flag, ierr)
+    call OptionsGetBool(options, "-output_rhot", "output total density", &
+         flow%io_rhot, flag, ierr)
+    call OptionsGetBool(options, "-output_pressure", "output pressure", &
+         flow%io_prs, flag, ierr)
