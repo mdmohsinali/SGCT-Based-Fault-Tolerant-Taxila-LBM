@@ -4,7 +4,7 @@
 #PBS -l mem=128GB
 #PBS -l walltime=00:50:00
 #PBS -N FT-LBM-2D
-#PBS -M md.ali@anu.edu.au
+#PBS -M mohsin.ali@anu.edu.au
 
 # http://nf.nci.org.au/training/NF_IntroCourse.new/slides/allslides.html
 # http://nf.nci.org.au/training/NF_IntroCourse.new/
@@ -17,7 +17,7 @@
 ##PBS -l walltime=02:00:00 # specify amount of walltime required hh:mm:ss
 ##PBS -l mem=220GB         # specify amount of memory required for all nodes (memory for each node x total nodes)
 ##PBS -N OpenMPI           # specify job name
-##PBS -M md.ali@anu.edu.au # specify email address where sending the email after aborting the job
+##PBS -M mohsin.ali@anu.edu.au # specify email address where sending the email after aborting the job
 
 # qsub jobname                # submit jobname job to the queue
 # qstat                       # show the status of the PBS queues
