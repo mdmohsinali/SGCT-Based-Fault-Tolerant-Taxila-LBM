@@ -9,7 +9,7 @@
  * Description: Contains function prototypes for reconstructing faulty              *
  *              communicator by performing in-order failed process                  *
  *              replacement, and other supporting functions to achieve this         *
- * Author     : Md Mohsin Ali (mohsin.ali<AT>anu.edu.au)                                *
+ * Author     : Md Mohsin Ali (mohsin.ali<AT>anu.edu.au)                            *
  * Created    : August 2013                                                         *
  * Updated    : December 2015                                                       *
  * Help       : See README file                                                     *
