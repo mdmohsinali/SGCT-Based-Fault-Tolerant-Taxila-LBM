@@ -1,9 +1,9 @@
 ## Bubble problem, in 3D
 
 # grid dimensions
-#-NX 128 # need to enable for visualization
-#-NY 128 # need to enable for visualization
-#-NZ 128 # need to enable for visualization
+#-NX 128 # need to enable for visualization (currently, visualization is not implemented for 3D)
+#-NY 128 # need to enable for visualization (currently, visualization is not implemented for 3D)
+#-NZ 128 # need to enable for visualization (currently, visualization is not implemented for 3D)
 
 # processor grid dimensions
 #-da_processors_x 1 # must disable for SGCT
@@ -39,9 +39,9 @@
 -rho_inner 0.03,0.97 #0.03,0.97
 
 # boundary conditions
--bc_periodic_x
--bc_periodic_y
--bc_periodic_z
+#-bc_periodic_x # must disable for SGCT
+#-bc_periodic_y # must disable for SGCT
+#-bc_periodic_z # must disable for SGCT
 
 # timestepping
 -npasses 20 #100
