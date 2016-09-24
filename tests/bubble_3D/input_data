@@ -1,8 +1,8 @@
 ## Bubble problem, in 2D
 
 # grid dimensions
-#-NX 128 # must disable for SGCT
-#-NY 128 # must disable for SGCT
+-NX 128 # need to enable for visualization
+-NY 128 # need to enable for visualization
 
 # processor grid dimensions
 #-da_processors_x 1 # must disable for SGCT
@@ -37,12 +37,12 @@
 -rho_inner 0.03,0.97 #0.03,0.97
 
 # boundary conditions
--bc_periodic_x
--bc_periodic_y
+#-bc_periodic_x # must disable for SGCT
+#-bc_periodic_y # must disable for SGCT
 
 # timestepping
--npasses 5 #100
-#-kwrite 5 #100
+-npasses 20000 #100
+#-kwrite 20 #100
 
 # geometry
 -walls_type 2

@@ -75,5 +75,5 @@ allclean:
 	rm -f $(LBM_LIB_DIR)/$(LBM_LIB_NAME)
 	rm -f $(LBM_MOD_DIR)/*.mod
 
-include ${PETSC_DIR}/conf/variables
-include ${PETSC_DIR}/conf/rules
+include ${PETSC_DIR}/lib/petsc/conf/variables
+include ${PETSC_DIR}/lib/petsc/conf/rules

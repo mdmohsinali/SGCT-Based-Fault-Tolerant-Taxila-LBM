@@ -9,7 +9,7 @@
 REAL_FAULT_TOLERANCE=0
 # 0 for NO and 1 for YES
 # ---------------------------------------------------------------
-WITH_HOSTFILE=0 # Automatically changed to 0 if USE_MANUAL_MAP=1
+WITH_HOSTFILE=1 # Automatically changed to 0 if USE_MANUAL_MAP=1
 # 0 for WITHOUT HOSTFILE and 1 for WITH HOSTFILE
 # ---------------------------------------------------------------
 SPEEDUP_OR_PROFILE=0

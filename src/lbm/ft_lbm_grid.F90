@@ -16,7 +16,6 @@
 #define PETSC_USE_FORTRAN_MODULES 1
 #include "finclude/petscsysdef.h"
 #include "finclude/petscdmdef.h"
-
 module LBM_Grid_module
   use petsc
   use LBM_Error_module

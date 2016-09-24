@@ -18,5 +18,5 @@ geometry: CreateGeom3DPetsc.o CreateGeom2DPetsc.o
 	-${FLINKER} -o createGeom3DPetsc CreateGeom3DPetsc.o  ${PETSC_DM_LIB}
 	-${FLINKER} -o createGeom2DPetsc CreateGeom2DPetsc.o  ${PETSC_DM_LIB}
 
-include ${PETSC_DIR}/conf/variables
-include ${PETSC_DIR}/conf/rules
+include ${PETSC_DIR}/lib/petsc/conf/variables
+include ${PETSC_DIR}/lib/petsc/conf/rules

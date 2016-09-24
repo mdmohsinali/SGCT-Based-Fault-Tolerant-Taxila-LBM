@@ -20,7 +20,7 @@ sys.path.append(petscdir)
 import numpy as np
 
 class SolutionReader(object):
-    def __init__( self, infile, prefix='', precision='double', indices='64bit' ):
+    def __init__( self, infile, prefix='', precision='double', indices='32bit' ):
         import PetscBinaryIO
         self._io = PetscBinaryIO.PetscBinaryIO(precision=precision, indices=indices)
 

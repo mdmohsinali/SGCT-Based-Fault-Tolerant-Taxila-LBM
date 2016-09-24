@@ -17,6 +17,6 @@ print rho.shape
 # visualize density of the 0th component with matplotlib
 from matplotlib import pyplot as plt
 plt.imshow(rho[:,:,0].transpose(), origin='lower')
-#plt.imshow(rho[:,:,0].transpose(), origin='lower',vmin=-0.25, vmax=1.25)
+plt.imshow(rho[:,:,0].transpose(), origin='lower',vmin=-0.25, vmax=1.25)
 plt.colorbar()
 plt.show()

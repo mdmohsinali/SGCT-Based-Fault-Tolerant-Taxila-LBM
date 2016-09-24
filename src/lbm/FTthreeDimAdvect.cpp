@@ -82,7 +82,7 @@
 	\t(`U' option will be applicable for the repeated runs if uses \n \
 	\tthe same number of MPI processes with the same degree of \n \
 	\tparallelism on each run); \n \
-        -F: full combined grid; \n \
+        -F: full combined grid (must set for visualization); \n \
         -d: debug grid combination; \n \
         v: verbosity; \n \
         iFail, jFail, kFail, xFail, yFail, zFail: mpi rank which is simulate \n \
@@ -174,7 +174,7 @@ static MPI_Comm myFullGridComm;  // communicator for the full grid
 static MPI_Comm myCommWorld = MPI_COMM_WORLD;// the global communicator
 static MPI_Comm combinationComm; // communicator for each combination
 static int randCombCount = 0;    // hold random number to determine when process failure will happen
-static bool useFullGrid = false; // if 1, use a dense grid data struct for s.g.
+static bool useFullGrid = false; // if 1, use a dense grid data struct for s.g. (must set for visualization)
 
 static ProcGrid3D *g = NULL,     // process grid configuration of a component grid
                   *sg = NULL;    // process grid configuration of the sparse grid
@@ -376,11 +376,11 @@ int main(int argc, char** argv) {
                   }
                }
             }
-
+#if 0
             if (verbosity > 0)
                // Print errors of fields before combination
                printErrorsComponentFields();            
-
+#endif
             // Sunchronize everything before combination
             MPI_Barrier(myCommWorld);
             // Perform combination
@@ -407,7 +407,7 @@ int main(int argc, char** argv) {
 
         // Printing elapsed time (time for full grid requires verbosity > 0)
         printElapsedTimes();
-#if 0
+#if 1
 #ifdef USE_TIMER_CLASS
         // Use Timer class for time measurement
         // Enable this for time measurement and speedup calculation
@@ -415,7 +415,7 @@ int main(int argc, char** argv) {
 #endif
 
         // Visualize sparse grid field
-        if (sg->myrank >= 0) // this process holds part of the sparse grid
+        if ((sg->myrank >= 0) && useFullGrid) // this process holds part of the sparse grid
            visualizeSparseGrid();
 #endif
 	// Memory release
@@ -576,7 +576,7 @@ void getArgs(int argc, char *argv[], int rank, int nprocs) {
 	      isReadFromDisk = true;
 	      break;
 	   case 'F':
-	      useFullGrid = true;
+	      useFullGrid = true; // Must set for visualization
 	      break;
 	   case 'n':
 	      isOptNgiven = true;
@@ -1692,7 +1692,7 @@ void visualizeSparseGrid (void) {
 
         // Call python script for visualization
         if (sg->myrank == 0) {
-           int ret = system("python ../../src/testing/rho_visualize_lbm.py");
+           int ret = system("python ../../src/testing/rho_visualize_lbm.py"); // May not work on PBS (in that case, manually do this)
         }
 } //visualizeSparseGrid()        
 

@@ -1,8 +1,7 @@
 #!/bin/bash
 #PBS -l ncpus=64
-#PBS -q normal
 #PBS -l mem=128GB
-#PBS -l walltime=00:50:00
+#PBS -l walltime=00:05:00
 #PBS -N FT-LBM-2D
 #PBS -M mohsin.ali@anu.edu.au
 
@@ -33,7 +32,10 @@
 
 # Load modules
 #module purge
-#module load openmpi
+module load openmpi/1.4.3
+module load gcc/4.6.4
+module load python/2.7.11
+module load python/2.7.11-matplotlib
 #module list
 
 # Execution info
@@ -76,8 +78,8 @@ cd $PBS_O_WORKDIR
 # Some settings
 # For 2D: -NX 2^X_DIM, -NY 2^Y_DIM
 # For 3D: -NX 2^X_DIM, -NY 2^Y_DIM, -NZ 2^Z_DIM
-X_DIM=12 #13
-Y_DIM=12 #13
+X_DIM=7 #13
+Y_DIM=7 #13
 Z_DIM=0 #0
 LEVEL=5 #5
 
@@ -105,10 +107,10 @@ trap "rm -f $HOST_FILE" EXIT
 
 # Compile Fortran and MPI codes
 (pwd;\
-echo "Setting environment from \"set_environment.raijin_cluster.non_ft_gfortran.sh\"";\
-source set_environment.raijin_cluster.non_ft_gfortran.sh;\
+#echo "Setting environment from \"set_environment.raijin_cluster.non_ft_gfortran.sh\"";\
+#source set_environment.raijin_cluster.non_ft_gfortran.sh;\
 #echo "Calling make allclean; make";\
-#make allclean;\
+make allclean;\
 make;\
 pwd)
 
@@ -118,7 +120,7 @@ pwd)
 
 # Execute MPI code
 # For fixed-time steps
-./run3dAdvectRaijin -v 1 -2 -p 8 -q 4 -r 2 -l ${LEVEL} ${X_DIM} ${Y_DIM} ${Z_DIM} # for 2D
+./run3dAdvectRaijin -v 1 -C 1 -2 -F -p 8 -q 4 -r 2 -l ${LEVEL} ${X_DIM} ${Y_DIM} ${Z_DIM} # for 2D (-F for full grid interpolation, needed for visualization)
 #./run3dAdvectRaijin -v 1 -p 16 -q 8 -r 4 -l ${LEVEL} ${X_DIM} ${Y_DIM} ${Z_DIM} # for 3D
 
 # Unset flags

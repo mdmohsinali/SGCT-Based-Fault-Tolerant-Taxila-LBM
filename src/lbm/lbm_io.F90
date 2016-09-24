@@ -85,7 +85,7 @@ contains
 
     call PetscViewerCreate(io%comm, viewer, ierr)
     call PetscViewerSetType(viewer, PETSCVIEWERBINARY, ierr)
-    if (io%mpiio) call PetscViewerBinarySetMPIIO(viewer, ierr)
+!!!   if (io%mpiio) call PetscViewerBinarySetMPIIO(viewer, ierr) !!!Mohsin
     call PetscViewerFileSetMode(viewer, FILE_MODE_WRITE, ierr)
     call PetscViewerFileSetName(viewer, filename, ierr)
     call VecView(vec, viewer, ierr)
@@ -109,7 +109,7 @@ contains
 
     call PetscViewerCreate(io%comm, viewer, ierr)
     call PetscViewerSetType(viewer, PETSCVIEWERBINARY, ierr)
-    if (io%mpiio) call PetscViewerBinarySetMPIIO(viewer, ierr)
+!!!    if (io%mpiio) call PetscViewerBinarySetMPIIO(viewer, ierr) !!!Mohsin
     call PetscViewerFileSetMode(viewer, FILE_MODE_READ, ierr)
     call PetscViewerFileSetName(viewer, filename, ierr)
     call VecLoad(vec, viewer, ierr)
@@ -126,7 +126,7 @@ contains
 
     call PetscViewerCreate(io%comm, viewer, ierr)
     call PetscViewerSetType(viewer, PETSCVIEWERBINARY, ierr)
-    if (io%mpiio) call PetscViewerBinarySetMPIIO(viewer, ierr)
+!!!    if (io%mpiio) call PetscViewerBinarySetMPIIO(viewer, ierr) !!!Mohsin
     call PetscViewerFileSetMode(viewer, FILE_MODE_READ, ierr)
     call PetscViewerFileSetName(viewer, filename, ierr)
     call VecLoad(vec, viewer, ierr)

@@ -198,8 +198,6 @@
            flag, ierr)
       call OptionsGetInt(options, "-npasses", "total timesteps to run", options%npasses, &
            flag, ierr)
-      ! Mohsin added this
-      options%npasses = options%npasses / options%ncombs
 
       call OptionsGetBool(options, "-run_to_steadystate", &
            "Run simulation until change in moments reach tolerance", options%run_to_steadystate, &

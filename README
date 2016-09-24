@@ -5,7 +5,7 @@
  *              application                                                         *        
  * Author     : Md Mohsin Ali (mohsin.ali<AT>anu.edu.au)                            *
  * Created    : December 2015                                                       *
- * Updated    : January  2016                                                       *
+ * Updated    : September 2016                                                      *
  ************************************************************************************/
 
 1.  HOW TO RUN?
@@ -25,7 +25,7 @@
 
     (a) Git revision icldistcomp-ulfm-46b781a8f170 (as of 13 December 2014)
     (b) gcc version 4.6.4 (GCC)
-    (c) PETSc (version 3.5.2) was installed with the following configuration
+    (c) PETSc (version 3.5.2 or 3.6.4) was installed with the following configuration
         ./configure --prefix=PATH --with-mpi-dir=PATH PETSC_ARCH=linux-gnu \
         --download-fblaslapack=1 --with-shared-libraries=1 PETSC_DIR=PATH/petsc \
         PETSC_ARCH=linux-gnu --with-64-bit-indices=0
@@ -81,14 +81,13 @@
         author = {Ali, Md Mohsin and Strazdins, Peter E and Harding, Brendan and Hegland, Markus},
         title = {Complex Scientific Applications Made Fault-Tolerant with the Sparse Grid Combination Technique},
         journal = {International Journal of High Performance Computing Applications (IJHPCA 2016)},
-        volume = {},
-        number = {},
-        pages = {},
-        doi = {},
+        volume = {30},
+        number = {3},
+        pages = {335--359},
+        doi = {10.1177/1094342015628056},
         days = {},
         month = {},
         year = {2016},
-        note = {(In Press)},
     }
 
     @PhdThesis{ali:2016:hpcftpdes,

@@ -125,7 +125,7 @@ source:
 
 run2d:
 	scp input_data.2d input_data
-	./run3dAdvectRaijin -v 0 -2 -p 8 -q 4 -r 2 -l 4 6 6 6 #2D version
+	./run3dAdvectRaijin -v 0 -2 -p 1 -q 1 -r 1 -l 4 6 6 6 #2D version
 
 run3d:
 	scp input_data.3d input_data
@@ -135,12 +135,11 @@ test: fortran
 	@echo ""
 	@echo "Running simulation"
 	@echo "------------------"
-	mpiexec -n 8 ./runSimulation input_data 
+	mpirun -np 8 ./lbm_raijin_cluster input_data 
 	@echo ""
 	@echo "Comparing simulation solution to reference solution"
 	@echo "---------------------------------------------------"
 	python $(LBM_DIR)/src/testing/check_solution.py input_data
 
-include ${PETSC_DIR}/conf/variables
-include ${PETSC_DIR}/conf/rules
-
+include ${PETSC_DIR}/lib/petsc/conf/variables
+include ${PETSC_DIR}/lib/petsc/conf/rules

@@ -193,5 +193,5 @@ tags:
 # 	lbm_forcing.o lbm_bc.o lbm_flow.o lbm_transport.o
 # main.o: lbm_logging.o lbm_options.o lbm_bc.o lbm.o
 
-include ${PETSC_DIR}/conf/variables
-include ${PETSC_DIR}/conf/rules
+include ${PETSC_DIR}/lib/petsc/conf/variables
+include ${PETSC_DIR}/lib/petsc/conf/rules

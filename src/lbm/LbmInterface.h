@@ -110,27 +110,27 @@ void setParameters(char * parInDir, int n_procs_x_dim, int n_procs_y_dim, int n_
     while (fgets(lineStringOfFile, sizeof(lineStringOfFile), inputFilePointer) != NULL) {
         lineStringOfFilePointer = trimLeadingSpaces(lineStringOfFile);
 	if (strncmp("-da_processors_x", lineStringOfFilePointer, strlen("-da_processors_x")) == 0){
-	   sprintf(replacedLineStringOfFile,"-da_processors_x %d\n", n_procs_x_dim);
+	   sprintf(replacedLineStringOfFile,"#-da_processors_x %d\n", n_procs_x_dim); // Not taking this input from */input_data file
 	   fputs(replacedLineStringOfFile, outputFilePointer);
 	}
 	else if (strncmp("-da_processors_y", lineStringOfFilePointer, strlen("-da_processors_y")) == 0){
-	   sprintf(replacedLineStringOfFile,"-da_processors_y %d\n", n_procs_y_dim);
+	   sprintf(replacedLineStringOfFile,"#-da_processors_y %d\n", n_procs_y_dim); // Not taking this input from */input_data file
 	   fputs(replacedLineStringOfFile, outputFilePointer);
 	}
 	else if (strncmp("-da_processors_z", lineStringOfFilePointer, strlen("-da_processors_z")) == 0) {
-	   sprintf(replacedLineStringOfFile,"-da_processors_z %d\n", n_procs_z_dim);
+	   sprintf(replacedLineStringOfFile,"#-da_processors_z %d\n", n_procs_z_dim); // Not taking this input from */input_data file
 	   fputs(replacedLineStringOfFile, outputFilePointer);
 	}
 	else if (strncmp("-NX", lineStringOfFilePointer, strlen("-NX")) == 0) {
-	   sprintf(replacedLineStringOfFile,"-NX %d\n", n_x_dim);
+	   sprintf(replacedLineStringOfFile,"#-NX %d\n", n_x_dim); // Not taking this input from */input_data file
 	   fputs(replacedLineStringOfFile, outputFilePointer);
 	}
 	else if (strncmp("-NY", lineStringOfFilePointer, strlen("-NY")) == 0) {
-	   sprintf(replacedLineStringOfFile,"-NY %d\n", n_y_dim);
+	   sprintf(replacedLineStringOfFile,"#-NY %d\n", n_y_dim); // Not taking this input from */input_data file
 	   fputs(replacedLineStringOfFile, outputFilePointer);
 	}
 	else if (strncmp("-NZ", lineStringOfFilePointer, strlen("-NZ")) == 0) {
-	   sprintf(replacedLineStringOfFile,"-NZ %d\n", n_z_dim);
+	   sprintf(replacedLineStringOfFile,"#-NZ %d\n", n_z_dim); // Not taking this input from */input_data file
 	   fputs(replacedLineStringOfFile, outputFilePointer);
 	}
 	else if (strncmp("-npasses", lineStringOfFilePointer, strlen("-npasses")) == 0) {

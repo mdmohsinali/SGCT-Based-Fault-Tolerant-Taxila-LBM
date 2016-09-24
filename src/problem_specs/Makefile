@@ -54,5 +54,5 @@ allclean:
 	rm -f ./*.mod
 	rm -f ./*.o
 
-include ${PETSC_DIR}/conf/variables
-include ${PETSC_DIR}/conf/rules
+include ${PETSC_DIR}/lib/petsc/conf/variables
+include ${PETSC_DIR}/lib/petsc/conf/rules
