@@ -41,7 +41,7 @@
 #-bc_periodic_y # must disable for SGCT
 
 # timestepping
--npasses 20000 #100
+-npasses 20 #100
 #-kwrite 20 #100
 
 # geometry

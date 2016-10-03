@@ -2,6 +2,8 @@ ifndef LBM_DIR
   LBM_DIR:=$(shell pwd)/../..
 endif
 
+APP_NAME = lbm_raijin_cluster
+
 LBM_OPT = yes
 
 ifndef COMP
@@ -94,7 +96,7 @@ fortran: copy_advectionGridCombine3D_files BEGIN source $(FORTRANOBJS) chkopts
 	@echo ""
 	@echo "Linking executable."
 	@echo "-------------------"
-	-${FLINKER} -o lbm_raijin_cluster $(FORTRANOBJS) \
+	-${FLINKER} -o $(APP_NAME) $(FORTRANOBJS) \
 	$(LBM_SRC_DIR)/$(MAIN_WRAP) \
 	$(foreach OBJ, $(CPP_OBJS), $(LBM_SRC_DIR)/$(OBJ)) \
 	$(INCPATHS) $(LIBS) \
@@ -118,18 +120,18 @@ allclean:
 	@cd $(LBM_SRC_DIR); make allclean
 	@cd $(LBM_PROBLEM_DIR); make allclean
 	rm -f ./*.o
-	rm -f lbm_raijin_cluster
+	rm -f $(APP_NAME)
 
 source: 
 	@cd $(LBM_SRC_DIR); make fortran
 
 run2d:
 	scp input_data.2d input_data
-	./run3dAdvectRaijin -v 0 -2 -p 1 -q 1 -r 1 -l 4 6 6 6 #2D version
+	mpirun -np 10 ./$(APP_NAME) -v 1 -2 -p 1 -q 1 -r 1 -l 4 7 7 0 #2D version, -F option needs for visualization
 
 run3d:
 	scp input_data.3d input_data
-	./run3dAdvectRaijin -v 0 -p 1 -q 1 -r 1 -l 4 6 6 6 #3D version
+	mpirun -np 20 ./$(APP_NAME) -v 1 -p 1 -q 1 -r 1 -l 4 6 6 6 #3D version
 
 include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
